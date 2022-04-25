@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
+import plotly.subplots as sp
 
 from datetime import date, datetime
 import time
@@ -18,6 +19,18 @@ class Timeline:
 
         self.df = self.get_df()
         self.timeline = self.create_timeline()
+
+    def get_time(self):
+        return self.now
+    
+    def check_time(self,time):
+        if time < self.commit:
+            return self.commit
+        if time > (self.get_time - self.get_time()%86400)():
+            return (self.get_time() - self.get_time()%86400)
+        else:
+            return time
+
 
     def change_color(self,color):
         if self.colors[self.og_colors.index(color)] == self.og_colors[self.og_colors.index(color)]:
@@ -60,7 +73,7 @@ class Timeline:
         for i in range(days*int(86400/self.increment)):
             details = {"timestamps":[start],"mood":[self.get_dominant(start)]}
             segment = pd.DataFrame(details)
-            timeline = pd.concat([timeline,segment],ignore_index=True, sort=False)
+            timeline = pd.concat([timeline,segment],ignore_index=True)
             start += self.increment
         return timeline 
 
@@ -75,8 +88,4 @@ class Timeline:
         fig = px.histogram(df,x="timestamps",color = "mood",nbins = int(86400/self.increment))
         return fig
     
-    def figure(self,start):
-        plots = []
-        for i in range(7):
-            plots.append(self.day(start))
-            start -= 86400
+
