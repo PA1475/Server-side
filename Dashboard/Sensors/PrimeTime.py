@@ -24,8 +24,9 @@ class Timeline:
         self.now = 1649324368
         #self.now = time.time()
 
-        self.colors = ["gray","red","green","blue","yellow"]
-        self.og = ["gray","red","green","blue","yellow"]
+        self.colors = ["gray","#A30015","#7CB518","#2081C3","#FFDD00"]
+        # NO FEELING , Tense , Excited, Fatigued, Calm
+        self.og = ["gray","red","yellow","blue","green"]
 
         self.df = self.get_df()
         self.timeline = self.fill_timeline()
@@ -63,26 +64,23 @@ class Timeline:
         emotions = []
         values = []
         clock = 0
-        print(pd.unique(df["emotions"]))
         for i in range(freq):
             stamps.append(clock)
             emotions.append(self.colors[self.df_color(df,start,start+delta)])
             values.append(1)
             start += delta
             clock += delta
-        df = pd.DataFrame({"timestamps":stamps,"emotions":emotions,"value":values})
+        return pd.DataFrame({"timestamps":stamps,"emotions":emotions,"value":values})
 
-        return df
-    def fig(self,start,end,freq=48):
+    def fig(self,start,freq=48,end=None):
+        if end is None:
+            end = start + 86400
         df = self.segment(start,end,freq)
         fig = go.Figure(data=[go.Bar(
             x = df["timestamps"].to_list(),
             y = df["value"].to_list(),
             marker_color = df["emotions"].to_list()
         )])
-        fig.show()
-
-plot = Timeline()        
-plot.fig(1649276548,1649276548+86400)
+        return fig
 
 
