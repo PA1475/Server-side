@@ -2,90 +2,87 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import plotly.subplots as sp
+import plotly.graph_objects as go
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import time
 import numpy as np
 
+class Screen:
+    def get_date(self,value):
+        day = date.today()-timedelta(value)
+        return day.strftime('%m/%d/%Y')
+
+    def get_unix(self,value):
+        day = date.today()-timedelta(value)
+        return int(day.strftime("%s"))
+
 
 class Timeline:
-    def __init__(self,increment = 600,commit = 1649245858):
+    def __init__(self,commit = 1649245858,increment = 600):
         self.commit = commit
-        self.now = time.time()
-        self.increment = increment
-        self.og_colors = ["grey","red","yellow","green","blue"]
-        self.colors = ["grey","red","yellow","green","blue"]
+        self.now = 1649324368
+        #self.now = time.time()
 
+        self.colors = ["gray","red","green","blue","yellow"]
+        self.og = ["gray","red","green","blue","yellow"]
 
         self.df = self.get_df()
-        self.timeline = self.create_timeline()
-
-    def get_time(self):
-        return self.now
+        self.timeline = self.fill_timeline()
     
-    def check_time(self,time):
-        if time < self.commit:
-            return self.commit
-        if time > (self.get_time - self.get_time()%86400)():
-            return (self.get_time() - self.get_time()%86400)
-        else:
-            return time
-
-
-    def change_color(self,color):
-        if self.colors[self.og_colors.index(color)] == self.og_colors[self.og_colors.index(color)]:
-            self.color[self.og_colors.index(color)] = "gray"
-        else:
-            self.color[self.og_colors.index(color)] = color
-
-    def restart(self):
-        self.timeline = self.create_timeline()
-
     def get_df(self):
         df = pd.read_csv(Path(__file__).parent/"emotions.csv")
-        df = df[df["timestamps"].between(self.now,self.commit)]
-        return df
+        df = df[df["timestamps"].between(self.commit,self.now)]
+        return df 
 
-    def get_dominant(self,start):
-        df = self.df
-        segment = df[df["timestamps"].between(start,start+self.increment)]
-        if segment.shape[0] == 0:
-            dominant = 0
+    def df_color(self,df,start,end):
+        df = df[df["timestamps"].between(start,end)]
+        if df.shape[0] == 0:
+            mood = 0
         else:
-            dominant = (segment["mood"].mode())[0]
-        return self.colors[dominant]
+            mood = df["emotions"].mode()[0]
+        return mood
+        
+    def fill_timeline(self):
+        stamp = self.commit
+        stamps = []
+        emotions = []
+        values = []
+        while stamp < self.now:
+            stamps.append(stamp)
+            emotions.append(self.df_color(self.df,stamp,stamp+60))
+            values.append(1)
+            stamp += 60
+        return pd.DataFrame({"timestamps":stamps,"emotions":emotions,"value":values})
 
-    def create_timeline(self,now = None):
-        timeline = pd.DataFrame(columns=["timestamps","mood"])
-        self.now = int(time.time())
+    def segment(self,start,end,freq):
+        df = self.timeline
+        df = df[df["timestamps"].between(start,end)]
+        delta = int((end-start)/freq)
+        stamps = []
+        emotions = []
+        values = []
+        clock = 0
+        print(pd.unique(df["emotions"]))
+        for i in range(freq):
+            stamps.append(clock)
+            emotions.append(self.colors[self.df_color(df,start,start+delta)])
+            values.append(1)
+            start += delta
+            clock += delta
+        df = pd.DataFrame({"timestamps":stamps,"emotions":emotions,"value":values})
 
-
-        end = self.now + (86400-self.now%86400)
-        start = self.commit - self.commit%86400
-        if end-start < 86400*8:
-            start = end - 86400*8
-        """
-        IF statement makes sure the timeline always is 7 days long
-        """
-
-
-        days = int((end-start)/86400)
-        for i in range(days*int(86400/self.increment)):
-            details = {"timestamps":[start],"mood":[self.get_dominant(start)]}
-            segment = pd.DataFrame(details)
-            timeline = pd.concat([timeline,segment],ignore_index=True)
-            start += self.increment
-        return timeline 
-
-    def get_segment(self,start,end=None):
-        if end is None:
-            end = start + 86400
-        df = self.timeline[self.timeline["timestamps"].between(start,end)]
         return df
+    def fig(self,start,end,freq=48):
+        df = self.segment(start,end,freq)
+        fig = go.Figure(data=[go.Bar(
+            x = df["timestamps"].to_list(),
+            y = df["value"].to_list(),
+            marker_color = df["emotions"].to_list()
+        )])
+        fig.show()
 
-    def day(self,start):
-        df = self.get_segment(start)
-        fig = px.histogram(df,x="timestamps",color = "mood",nbins = int(86400/self.increment))
-        return fig
-    
+plot = Timeline()        
+plot.fig(1649276548,1649276548+86400)
+
 
