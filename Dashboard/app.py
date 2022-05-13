@@ -168,11 +168,14 @@ app.layout = html.Div(
 )
 @app.callback(
     Output("timeline","figure"),
-    Input("datepicker","date"))
-def update_timeline(date):
-    date = datetime.strptime(date, '%Y-%m-%d').date()
-    unix_time = int(date.strftime("%s"))
-    return timeline.fig(unix_time)
+    Input('datepicker', 'date'),
+    Input('start', 'value'),
+    Input('end', 'value'))
+def update_timeline(date,start,end):
+    time_range = [start,end]
+    return timeline.fig(date,time_range)
+
+
 
 
 @app.callback(

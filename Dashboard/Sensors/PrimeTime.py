@@ -4,19 +4,9 @@ import plotly.express as px
 import plotly.subplots as sp
 import plotly.graph_objects as go
 
-from datetime import date, datetime, timedelta
+import datetime
 import time
 import numpy as np
-
-class Screen:
-    def get_date(self,value):
-        day = date.today()-timedelta(value)
-        return day.strftime('%m/%d/%Y')
-
-    def get_unix(self,value):
-        day = date.today()-timedelta(value)
-        return int(day.strftime("%s"))
-
 
 class Timeline:
     def __init__(self,commit = 1649245858,increment = 600):
@@ -72,15 +62,23 @@ class Timeline:
             clock += delta
         return pd.DataFrame({"timestamps":stamps,"emotions":emotions,"value":values})
 
-    def fig(self,start,freq=48,end=None):
-        if end is None:
-            end = start + 86400
+    def fig(self,date,timerange=[0,24],freq=48):
+        dt = datetime.datetime.strptime(date, '%Y-%m-%d')
+        unix = time.mktime(dt.timetuple())
+        start = unix + int(timerange[0])*3600
+        end = unix + int(timerange[1])*3600
         df = self.segment(start,end,freq)
-        fig = go.Figure(data=[go.Bar(
+        fig_ = go.Figure(data=[go.Bar(
             x = df["timestamps"].to_list(),
             y = df["value"].to_list(),
             marker_color = df["emotions"].to_list()
         )])
-        return fig
+        hours = (end-start)/3600
+        fig_.update_yaxes(visible=False, showticklabels=False)
+        """fig_.update_xaxes(
+            tickangle=45,
+            tickmode="array",
+            tickvals=clock)"""
+        return fig_
 
 
