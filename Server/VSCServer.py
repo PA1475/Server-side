@@ -76,6 +76,7 @@ class VSCServer:
         except RuntimeError:
             pass
         finally:
+            self._E4_handler.exit()
             self._kill_eyetracker()
             # Turn off E4
         print("Server shutdown successful")
@@ -260,8 +261,12 @@ class VSCServer:
                 await asyncio.sleep(BASELINE_TIME+3)
                 try:
                     stream_data = self._E4_handler.get_data(BASELINE_TIME)
-                except Exception:
+                except BufferError:
                     await self._send_error(ERR_E4_DATA_RAISE)
+                    return
+                except IndexError:
+                    await self.send(f"{START_BASELINE} {FAIL_STR}")
+                    return
                 self._baseline = self._to_baseline(stream_data)
                 await self._save_baseline(stream_data)
 
@@ -275,17 +280,12 @@ class VSCServer:
 
     async def _end_server(self, data):
         await self._save_actions()
+        await self._E4_handler.exit()
         try:
             self.msg_handler.exit()
             self.handler_task.cancel()
         except asyncio.exceptions.CancelledError:
             pass
-
-    async def _save_actions(self):
-        pass
-
-    async def _get_saved_actions(self):
-        return ["TEST"] 
     
     async def _activate_active_actions(self):
         for a in self.actions.keys():
@@ -297,18 +297,20 @@ class VSCServer:
                 await self.actions[a].start()
 
     async def _connect_E4(self, data):
-        await self._E4_handler.connect_to_server(data)
-        connected = await self._E4_handler.connect_E4()
-        print("connected")
+        connected = await self._E4_handler.connect_to_server(data)
         if connected:
-            await self._E4_handler.subscribe_to(E4data.BVP)
-            await self._E4_handler.subscribe_to(E4data.GSR)
-            await self._E4_handler.subscribe_to(E4data.IBI)
-            await self._E4_handler.subscribe_to(E4data.TEMP)
-            self.settings["devices"]["E4"] = True
-            await self.send(f"{CONNECT_E4} {SUCCESS_STR}")
+            connected = await self._E4_handler.connect_E4()
+            if connected:
+                await self._E4_handler.subscribe_to(E4data.BVP)
+                await self._E4_handler.subscribe_to(E4data.GSR)
+                await self._E4_handler.subscribe_to(E4data.IBI)
+                await self._E4_handler.subscribe_to(E4data.TEMP)
+                self.settings["devices"]["E4"] = True
+                await self.send(f"{CONNECT_E4} {SUCCESS_STR}")
+            else:
+                await self.send(f"{CONNECT_E4} {FAIL_STR} DEVICE")
         else:
-            await self.send(f"{CONNECT_E4} {FAIL_STR}")
+            await self.send(f"{CONNECT_E4} {FAIL_STR} SERVER")
 
 
     async def _exit_actions(self, device, deactivate=False):
@@ -323,10 +325,9 @@ class VSCServer:
 
 
     async def _disconnect_E4(self, data):
-        # await self._exit_actions("E4")
-        # await self._E4_handler.disconnect()
-        print("Disconnecting")
+        self.settings["devices"]["E4"] = False
         await self._exit_actions("E4")
+        await self._E4_handler.disconnect_E4()
         await self.send(f"{DISCONNECT_E4} {SUCCESS_STR}")
 
 

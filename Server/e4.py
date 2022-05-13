@@ -193,9 +193,9 @@ class E4:
     
     def get_data(self, no_seconds):
         if no_seconds > SECONDS_TO_SAVE:
-            raise Exception(f"To many seconds. Only the last {SECONDS_TO_SAVE} seconds are stored.")
+            raise BufferError(f"To many seconds. Only the last {SECONDS_TO_SAVE} seconds are stored.")
         if no_seconds > len(self.dataObject["HR"]):
-            raise Exception("There is not enough data.")
+            raise IndexError("There is not enough data.")
         data_object = {}
         data_object["EDA"] = self.dataObject["EDA"][-4*no_seconds:]
         data_object["BVP"] = self.dataObject["BVP"][-64*no_seconds:]

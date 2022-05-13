@@ -200,7 +200,7 @@ class SurveyAction(Action):
             # Get data to pair mood with
             try:
                 latest_data = self.serv._E4_handler.get_data(self.DATA_RANGE)
-            except Exception:
+            except IndexError:
                 return None
             # Add mood to data
             del latest_data["timestamp"]
@@ -244,8 +244,10 @@ class EstimatedEmotion(Action):
         df.to_csv(FILE_NAME, index=False)
 
     async def _execute(self):
-        latest_data = self.serv._E4_handler.get_data(self.DATA_RANGE)
-
+        try:
+            latest_data = self.serv._E4_handler.get_data(self.DATA_RANGE)
+        except IndexError:
+            return None
         # Convert to correct format before using with E4Model
         signal_values = self._convert(latest_data)
         # Do stuff
