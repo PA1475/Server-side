@@ -148,6 +148,8 @@ class SurveyAction(Action):
         # - - NECESSARY - -
         self.NAME = "SRVY"
         self.DEVICES = ["E4"]
+        self.CLIENT_ACTION = True
+
         # -----------------
 
         self.DATA_RANGE = 10
@@ -216,6 +218,7 @@ class EstimatedEmotion(Action):
         self.DEVICES = ["E4"]
         self._signal_index = 0
         self.DATA_RANGE = 10
+        self.CLIENT_ACTION = False
     
     def _convert(self, latest_data):
         ret_dict = {}
@@ -337,6 +340,7 @@ class ActionBreak(Action):
         super().__init__(frequency, serv)
         self.NAME = "BRK"
         self.DEVICES = ["E4"]
+        self.ACTIONS = ["ESTM"]
         self.frequency = frequency
         self.percentage = 0.7
         self.emotion = "1"
@@ -371,9 +375,6 @@ class ActionBreak(Action):
                 stress_count += 1
 
         if stress_count >= len(emotion_values) * self.percentage: # if 70% of the predicted emotions are stressed
-            msg = 'take_break'
-            await self._msg_client(msg)
-        else:
-            msg = 'continue_working'
+            msg = 'BREAK'
             await self._msg_client(msg)
 

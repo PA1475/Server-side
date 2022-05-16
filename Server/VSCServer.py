@@ -50,7 +50,6 @@ class VSCServer:
         
         self.done_lock = asyncio.Event()
         self.cmd_dict = {
-            "FRM" : self._save_form_data,         # Form, training AI
             "CE4" : self._connect_E4,             # Connect E4
             "DE4" : self._disconnect_E4,          # Disconnect E4
             "ONEY": self._start_eyetracker,       # Start EYE
@@ -58,7 +57,6 @@ class VSCServer:
             "RCEY": self._recalibrate_eyetracker, # Recalibrate EYE
             "END" : self._end_server,             # End server (exit)
             "SBL" : self._start_baseline,         # Start basline recording
-            "SCE4": self._scan_E4,                # Scan for E4 devices
             "AACT": self._activate_action,
             "DACT": self._deactivate_action,
             "EACT": self._edit_action,
@@ -71,14 +69,9 @@ class VSCServer:
             await self.handler_task
         except asyncio.CancelledError:
             pass
-        except KeyboardInterrupt:
-            self.handler_task.cancel()
-        except RuntimeError:
-            pass
         finally:
-            self._E4_handler.exit()
+            await self._E4_handler.exit()
             self._kill_eyetracker()
-            # Turn off E4
         print("Server shutdown successful")
 
 
@@ -218,10 +211,6 @@ class VSCServer:
     async def send(self, msg):
         await self.msg_handler.send(msg)
 
-    async def _save_form_data(self, data):
-        # Handle form (for training AI)
-        print(data)
-    
     async def _save_baseline(self, baseline):
         with open(BASELINE_NAME,"w") as opfile:
             json.dump(baseline, opfile, indent=4)
@@ -258,14 +247,14 @@ class VSCServer:
         else:
             # Check if E4 is connected
             if self.settings["devices"]["E4"]:
-                await asyncio.sleep(BASELINE_TIME+3)
+                await asyncio.sleep(BASELINE_TIME+10)
                 try:
                     stream_data = self._E4_handler.get_data(BASELINE_TIME)
                 except BufferError:
                     await self._send_error(ERR_E4_DATA_RAISE)
                     return
                 except IndexError:
-                    await self.send(f"{START_BASELINE} {FAIL_STR}")
+                    await self.send(f"{START_BASELINE} {FAIL_STR} NEW")
                     return
                 self._baseline = self._to_baseline(stream_data)
                 await self._save_baseline(stream_data)
@@ -276,7 +265,7 @@ class VSCServer:
             else:
                 # Let extension know that connection to E4 is required to create
                 # a new baseline
-                await self.send(f"{START_BASELINE} {FAIL_STR} NEW")
+                await self.send(f"{START_BASELINE} {FAIL_STR} CE4")
 
     async def _end_server(self, data):
         await self._save_actions()
@@ -306,10 +295,13 @@ class VSCServer:
                 await self._E4_handler.subscribe_to(E4data.IBI)
                 await self._E4_handler.subscribe_to(E4data.TEMP)
                 self.settings["devices"]["E4"] = True
+                print("Connected to E4.")
                 await self.send(f"{CONNECT_E4} {SUCCESS_STR}")
             else:
+                print("No E4 device available.")
                 await self.send(f"{CONNECT_E4} {FAIL_STR} DEVICE")
         else:
+            print("Cannot connect to E4 Streaming Server.")
             await self.send(f"{CONNECT_E4} {FAIL_STR} SERVER")
 
 
@@ -328,6 +320,7 @@ class VSCServer:
         self.settings["devices"]["E4"] = False
         await self._exit_actions("E4")
         await self._E4_handler.disconnect_E4()
+        print("Disconnected E4.")
         await self.send(f"{DISCONNECT_E4} {SUCCESS_STR}")
 
 
@@ -336,6 +329,7 @@ class VSCServer:
             self.eye_tracker.run(True, int(data))
             self.settings["devices"]["EYE"] = True
             await self._activate_active_actions()
+            print("Eyetracker connected.")
             await self.send(f"{START_EYE} {SUCCESS_STR}")
         except Exception as e:
             print(e)
@@ -349,6 +343,7 @@ class VSCServer:
         await self._exit_actions("EYE")
         self.eye_tracker.run(False)
         self.settings["devices"]["EYE"] = False
+        print("Eyetracker disconnected.")
         await self.send(f"{STOP_EYE} {SUCCESS_STR}")
 
     async def _recalibrate_eyetracker(self, data):
@@ -358,14 +353,6 @@ class VSCServer:
             await self.send(f"{RECALIBRATE_EYE} {SUCCESS_STR}")
         else:
             await self.send(f"{RECALIBRATE_EYE} {FAIL_STR}")
-
-    async def _scan_E4(self, data):
-        address_lst = await self._E4_handler.scan_for_e4()
-        if address_lst:
-            address_str = " ".join(address_lst)
-            await self.send(f"{SCAN_E4} {SUCCESS_STR} {address_str}")
-        else:
-            await self.send(f"{SCAN_E4} {FAIL_STR}")
     
     async def _lost_E4_connection(self, reason):
         self._exit_actions("E4")
@@ -381,4 +368,7 @@ async def main():
     await server.run()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

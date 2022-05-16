@@ -47,6 +47,7 @@ class E4Handler:
         try:
             self.read_task.result()
         except OSError:
+            self.read_task = None
             return False
         except asyncio.exceptions.InvalidStateError:
             return True

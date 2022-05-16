@@ -154,16 +154,13 @@ class E4:
             E4 Streaming Server needs to be established
         """
         if not self._connected:
-            raise Exception("Server is not connected.")
+            return True
         response = await self._E4_client.send("device_disconnect")
         parts = response.split(' ')
         self._connected = False
         await self._E4_client.exit()
-        if parts[2] == "OK":
-            # Disconnected device
-            return True
         # No device connected in the first place
-        return False
+        return True
     
     async def subscribe_to(self, enum_sub):
         if not self._connected:
