@@ -285,7 +285,16 @@ class VSCServer:
             if self.actions[a].active and all_devices_connected:
                 await self.actions[a].start()
 
+    async def _lost_E4(self, data):
+        if data == "LOST" or data == "S_LOST":
+            self.settings["devices"]["E4"] = False
+            await self._exit_actions("E4")
+            print("Lost connection to E4.")
+            await self.send(f"{DISCONNECT_E4} {SUCCESS_STR} {data}")
+        
+    
     async def _connect_E4(self, data):
+        self._E4_handler.disconnect_callback(self._lost_E4)
         connected = await self._E4_handler.connect_to_server(data)
         if connected:
             connected = await self._E4_handler.connect_E4()
@@ -353,10 +362,6 @@ class VSCServer:
             await self.send(f"{RECALIBRATE_EYE} {SUCCESS_STR}")
         else:
             await self.send(f"{RECALIBRATE_EYE} {FAIL_STR}")
-    
-    async def _lost_E4_connection(self, reason):
-        self._exit_actions("E4")
-        await self.send(f"{E4_LOST_CONNECTION} {reason}")
 
     async def _connected_confirmation(self):
         self.settings["devices"]["E4"] = True

@@ -71,14 +71,14 @@ class E4:
         await self._E4_client.exit()
 
     def _add_callbacks(self):
-        self._E4_client.callback('E4_Acc' ,self._ACC)
+        #self._E4_client.callback('E4_Acc' ,self._ACC)
         self._E4_client.callback('E4_Bvp' ,self._BVP)
         self._E4_client.callback('E4_Gsr' ,self._GSR)
         self._E4_client.callback('E4_Temperature',self._TEMP)
         self._E4_client.callback('E4_Ibi' ,self._IBI)
         self._E4_client.callback('E4_Hr' ,self._HR)
-        self._E4_client.callback('E4_Battery',self._BATTERY)
-        self._E4_client.callback('E4_Tag', self._TAG)
+        #self._E4_client.callback('E4_Battery',self._BATTERY)
+        #self._E4_client.callback('E4_Tag', self._TAG)
 
     def _BVP(self, timestamp, data):
         self.dataObject["BVP"].append(data[0])
@@ -112,6 +112,16 @@ class E4:
         pass
 
     async def _dc_callback(self, state):
+        if state == "LOST" or state == "S_LOST":
+            self._connected = False
+            await self._E4_client.exit()
+            self.dataObject = {
+                "EDA": [],
+                "BVP": [],
+                "TEMP": [],
+                "HR" : [],
+                "timestamp": 0}
+
         if self.dc_func is not None:
             if inspect.iscoroutinefunction(self.dc_func):
                 await self.dc_func(state)
@@ -153,10 +163,15 @@ class E4:
             After calling this function a new connection to the
             E4 Streaming Server needs to be established
         """
+        self.dataObject = {
+                "EDA": [],
+                "BVP": [],
+                "TEMP": [],
+                "HR" : [],
+                "timestamp": 0 }
         if not self._connected:
             return True
-        response = await self._E4_client.send("device_disconnect")
-        parts = response.split(' ')
+        await self._E4_client.send("device_disconnect")
         self._connected = False
         await self._E4_client.exit()
         # No device connected in the first place
@@ -188,10 +203,13 @@ class E4:
             return True
         return False
     
+    def check_stream(self):
+        return len(self.dataObject["HR"])
+
     def get_data(self, no_seconds):
         if no_seconds > SECONDS_TO_SAVE:
             raise BufferError(f"To many seconds. Only the last {SECONDS_TO_SAVE} seconds are stored.")
-        if no_seconds > len(self.dataObject["HR"]):
+        if no_seconds > len(self.dataObject["HR"]) or not self._connected:
             raise IndexError("There is not enough data.")
         data_object = {}
         data_object["EDA"] = self.dataObject["EDA"][-4*no_seconds:]

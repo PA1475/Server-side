@@ -148,6 +148,7 @@ class SurveyAction(Action):
         # - - NECESSARY - -
         self.NAME = "SRVY"
         self.DEVICES = ["E4"]
+        self.ACTIONS = ["CSTM"]
         self.CLIENT_ACTION = True
 
         # -----------------
@@ -216,6 +217,7 @@ class EstimatedEmotion(Action):
         super().__init__(frequency, serv)
         self.NAME = "ESTM"
         self.DEVICES = ["E4"]
+        self.ACTIONS = ["CSTM"]
         self._signal_index = 0
         self.DATA_RANGE = 10
         self.CLIENT_ACTION = False
@@ -377,4 +379,24 @@ class ActionBreak(Action):
         if stress_count >= len(emotion_values) * self.percentage: # if 70% of the predicted emotions are stressed
             msg = 'BREAK'
             await self._msg_client(msg)
+
+class ActionCheckStream(Action):
+    def __init__(self, frequency, serv):
+        super().__init__(frequency, serv)
+        self.NAME = "CSTM"
+        self.DEVICES = ["E4"]
+        self._previous_len = 0
+        self._count = 0
+
+    async def _execute(self):
+        new_len = self.serv._E4_handler.check_stream()
+        if new_len == self._previous_len and new_len != 30:
+            if self._count == 0:
+                await self._msg_client("FAIL")
+                self._count = 5
+            else:
+                self._count -= 1
+
+        self._previous_len = new_len
+        
 

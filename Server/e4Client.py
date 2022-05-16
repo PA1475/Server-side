@@ -62,14 +62,14 @@ class E4Handler:
                 self.event.set()
             raise
         await self._stream_reader()
-        #await read_task
 
     async def exit(self):
         if self.running:
             self.running = False
             # Other stuff
             self.writer.close()
-            await self.read_task
+            await self.writer.wait_closed()
+            #await self.read_task Might need to be here
             self.read_task = None
             self._resp_dict = {}
 
@@ -101,6 +101,7 @@ class E4Handler:
                 await self._handle_cmd(msg)
             except asyncio.exceptions.IncompleteReadError:
                 reading = False
+                await self._conn_lost_f("S_LOST")
     
     async def _handle_cmd(self, msg):
         cmd = msg.split(' ')
