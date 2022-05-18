@@ -148,6 +148,9 @@ class SurveyAction(Action):
         # - - NECESSARY - -
         self.NAME = "SRVY"
         self.DEVICES = ["E4"]
+        self.ACTIONS = ["CSTM"]
+        self.CLIENT_ACTION = True
+
         # -----------------
 
         self.DATA_RANGE = 10
@@ -200,7 +203,7 @@ class SurveyAction(Action):
             # Get data to pair mood with
             try:
                 latest_data = self.serv._E4_handler.get_data(self.DATA_RANGE)
-            except Exception:
+            except IndexError:
                 return None
             # Add mood to data
             del latest_data["timestamp"]
@@ -214,8 +217,10 @@ class EstimatedEmotion(Action):
         super().__init__(frequency, serv)
         self.NAME = "ESTM"
         self.DEVICES = ["E4"]
+        self.ACTIONS = ["CSTM"]
         self._signal_index = 0
         self.DATA_RANGE = 10
+        self.CLIENT_ACTION = False
     
     def _convert(self, latest_data):
         ret_dict = {}
@@ -244,8 +249,10 @@ class EstimatedEmotion(Action):
         df.to_csv(FILE_NAME, index=False)
 
     async def _execute(self):
-        latest_data = self.serv._E4_handler.get_data(self.DATA_RANGE)
-
+        try:
+            latest_data = self.serv._E4_handler.get_data(self.DATA_RANGE)
+        except IndexError:
+            return None
         # Convert to correct format before using with E4Model
         signal_values = self._convert(latest_data)
         # Do stuff
@@ -335,6 +342,7 @@ class ActionBreak(Action):
         super().__init__(frequency, serv)
         self.NAME = "BRK"
         self.DEVICES = ["E4"]
+        self.ACTIONS = ["ESTM"]
         self.frequency = frequency
         self.percentage = 0.7
         self.emotion = "1"
@@ -369,9 +377,26 @@ class ActionBreak(Action):
                 stress_count += 1
 
         if stress_count >= len(emotion_values) * self.percentage: # if 70% of the predicted emotions are stressed
-            msg = 'take_break'
+            msg = 'BREAK'
             await self._msg_client(msg)
-        else:
-            msg = 'continue_working'
-            await self._msg_client(msg)
+
+class ActionCheckStream(Action):
+    def __init__(self, frequency, serv):
+        super().__init__(frequency, serv)
+        self.NAME = "CSTM"
+        self.DEVICES = ["E4"]
+        self._previous_len = 0
+        self._count = 0
+
+    async def _execute(self):
+        new_len = self.serv._E4_handler.check_stream()
+        if new_len == self._previous_len and new_len != 30:
+            if self._count == 0:
+                await self._msg_client("FAIL")
+                self._count = 5
+            else:
+                self._count -= 1
+
+        self._previous_len = new_len
+        
 
