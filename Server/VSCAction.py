@@ -64,10 +64,14 @@ class Action:
             self.main_task = asyncio.create_task(self._scheduler())
             await self.main_task
     
+    async def _breakdown(self):
+        pass
+    
     async def exit(self):
         # Resets variables if action is to be activated again
         shut_down = []
         if self.running:
+            self._breakdown()
             self.running = False
             self._client_answer_message = ""
             self.client_answer_lock.clear()
@@ -345,7 +349,7 @@ class ActionBreak(Action):
         self.ACTIONS = ["ESTM"]
         self.frequency = frequency
         self.percentage = 0.7
-        self.emotion = "1"
+        self._emotion = 1
         self.settings["CERT"] = self._set_certainty
         self.settings["EMO"] = self._set_emotion
 
@@ -358,7 +362,11 @@ class ActionBreak(Action):
         return changed
     
     def _set_emotion(self, emotion):
-        pass
+        try:
+            self._emotion = int(emotion) - 1 
+            return True
+        except Exception:
+            return False
 
     async def _execute(self):
         # read the last x minutes from the emotions file 
@@ -373,7 +381,7 @@ class ActionBreak(Action):
         stress_count = 0
 
         for emotion in emotion_values:
-            if emotion == 1:
+            if emotion == self._emotion:
                 stress_count += 1
 
         if stress_count >= len(emotion_values) * self.percentage: # if 70% of the predicted emotions are stressed
@@ -398,5 +406,9 @@ class ActionCheckStream(Action):
                 self._count -= 1
 
         self._previous_len = new_len
+    
+    async def _breakdown(self):
+        self._previous_len = 0
+        self._count = 0
         
 
