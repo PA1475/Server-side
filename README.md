@@ -21,7 +21,7 @@ The important functions in the action class are:
   Settings are a keyword together with a function. When editing an action the command EACT (Edit action) is used the command can look as following: "EACT SRVY TIME 10".
   Here EACT is the server command, SRVY is the name of the action, TIME is the setting name and 10 is the data (time in minutes in this case). 
   
-  When sending a response to an action from the client the command format is as follows: "ACT *action name* *data*".
+  When sending a response to an action from the client the command format is as follows: "ACT *action_name* *data*".
   
   ## Dashboard
   The dashboard is started with the command python app.py in the Dashboard directory.
