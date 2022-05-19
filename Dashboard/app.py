@@ -64,7 +64,7 @@ date_picker_bar = html.Div(
         children=[
                     html.H4('Select a timeframe', style={'margin' : 'auto', 'margin-right' : 20}),
                     html.P('Date:', style={'margin' : 'auto'}),
-                    dcc.DatePickerSingle(id='datepicker', date=date(2022, 2, 9), style={'background-color' : 'red', 'border-radius' : 10}),
+                    dcc.DatePickerSingle(id='datepicker', date=date(2022, 5, 19), style={'background-color' : 'red', 'border-radius' : 10}),
                     html.P('Start time:', style={'margin' : 'auto'}),
                     dcc.Dropdown(time_labels, 8, id='start', style={'width':100}),
                     html.P('End time:', style={'margin' : 'auto'}),
@@ -149,7 +149,11 @@ app.layout = html.Div(
         html.Div(
             children=[
                 date_picker_bar,
-                time_graph,
+                html.Div(
+                    [   html.H2("Emotions over time"),
+                        time_graph,
+                        html.Img(src="/assets/moods.png")
+                    ],style={'textAlign': 'center'}),
                 dbc.Row(
                     [
                         E4ColumnPicker,
@@ -179,8 +183,6 @@ app.layout = html.Div(
 def update_timeline(date,start,end):
     time_range = [start,end]
     return timeline.fig(date,time_range)
-
-
 
 
 @app.callback(
