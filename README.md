@@ -14,9 +14,8 @@ The action must contain a NAME variable which is used when calling the action an
 These dependencies make sures no action is on when not supposed to.
 The important functions in the action class are:
 1. _execute(self) -_ This function gets called when its time for the action to do some work. (Overwrite)
-2. _breakdown(self) -_ This function gets called when the system exits. (Overwrite)
-3. self._msg_client(message) -_ This function sends a message to the client and does not get a response. (Call)
-4. self._msg_client_wait(message) -_ This function sends a message to the client and waits for a response. (Call)
+2. self._msg_client(message) -_ This function sends a message to the client and does not get a response. (Call)
+3. self._msg_client_wait(message) -_ This function sends a message to the client and waits for a response. (Call)
 
   Settings are a keyword together with a function. When editing an action the command EACT (Edit action) is used the command can look as following: "EACT SRVY TIME 10".
   Here EACT is the server command, SRVY is the name of the action, TIME is the setting name and 10 is the data (time in minutes in this case). 
