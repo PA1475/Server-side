@@ -1,5 +1,3 @@
-from asyncio import base_events
-from http import client
 from Error_handler import ErrorHandler
 from VSCMessageHandler import MsgHandler
 from VSCServerMessages import *
@@ -10,6 +8,7 @@ import sys, os
 import json
 import os
 import numpy as np
+import pandas as pd
 from e4 import E4
 
 
@@ -18,6 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "./Eyetracker"))
 
 import machine_learning
+import machine_learning.retrain as ml_retrain
 from gazepoint import Livestream
 
 
@@ -37,6 +37,7 @@ class VSCServer:
         self._E4_handler = E4()
         self._E4_model = None
         self.eye_tracker = Livestream()
+        self._retrain = False
         self._baseline = None
         self.settings = {
             "devices" : {"E4" : False, "EYE" : False, "EEG" : False, "TEST" : False, "TEST2" : False},
@@ -363,10 +364,17 @@ class VSCServer:
         else:
             await self.send(f"{RECALIBRATE_EYE} {FAIL_STR}")
 
-    async def _connected_confirmation(self):
-        self.settings["devices"]["E4"] = True
-        await self._activate_active_actions()
-        await self.send(f"{CONNECT_E4} {SUCCESS_STR}")
+    async def retrain_ai(self):
+        path = os.path.join(os.path.dirname(__file__), "dataset.csv")
+        df = pd.read_csv(path)
+        ml_retrain.train(df)
+        
+
+    async def _set_retrain(self, data):
+        self._retrain = False
+        if data == "true":
+            self._retrain = True
+
 
 async def main():
     server = VSCServer()
