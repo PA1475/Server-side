@@ -64,14 +64,10 @@ class Action:
             self.main_task = asyncio.create_task(self._scheduler())
             await self.main_task
     
-    async def _breakdown(self):
-        pass
-    
     async def exit(self):
         # Resets variables if action is to be activated again
         shut_down = []
         if self.running:
-            self._breakdown()
             self.running = False
             self._client_answer_message = ""
             self.client_answer_lock.clear()
@@ -202,7 +198,6 @@ class SurveyAction(Action):
     async def _execute(self):
         # Request mood from extension, wait for response
         message = await self._msg_client_wait("MOOD")
-
         if message != "0":
             # Get data to pair mood with
             try:
@@ -212,8 +207,8 @@ class SurveyAction(Action):
             # Add mood to data
             del latest_data["timestamp"]
             instance = self.serv._E4_model.get_instance(self._convert(latest_data))
-
-            self._save_instance(instance, int(message))
+            correct_label = int(message)-1
+            self._save_instance(instance, correct_label)
 
 
 class EstimatedEmotion(Action):
@@ -399,16 +394,7 @@ class ActionCheckStream(Action):
     async def _execute(self):
         new_len = self.serv._E4_handler.check_stream()
         if new_len == self._previous_len and new_len != 30:
-            if self._count == 0:
-                await self._msg_client("FAIL")
-                self._count = 5
-            else:
-                self._count -= 1
-
-        self._previous_len = new_len
-    
-    async def _breakdown(self):
-        self._previous_len = 0
-        self._count = 0
+            print(f"HR stuck at '{new_len}' for one minute.")
+            await self._msg_client("FAIL")
         
 

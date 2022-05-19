@@ -7,6 +7,7 @@ import asyncio
 import sys, os
 import json
 import os
+import pandas as pd
 import numpy as np
 import pandas as pd
 from e4 import E4
@@ -39,6 +40,8 @@ class VSCServer:
         self.eye_tracker = Livestream()
         self._retrain = False
         self._baseline = None
+        self._retrain = False
+        self._auto_save = False
         self.settings = {
             "devices" : {"E4" : False, "EYE" : False, "EEG" : False, "TEST" : False, "TEST2" : False},
             "setup" : True
@@ -58,10 +61,12 @@ class VSCServer:
             "RCEY": self._recalibrate_eyetracker, # Recalibrate EYE
             "END" : self._end_server,             # End server (exit)
             "SBL" : self._start_baseline,         # Start basline recording
-            "AACT": self._activate_action,
+            "AACT": self._activate_action,        
             "DACT": self._deactivate_action,
             "EACT": self._edit_action,
-            "ACT" : self._action_response
+            "ACT" : self._action_response,
+            "RTAI": self._set_retrain,
+            "ASAI": self._auto_save_training
         }
 
     
@@ -73,7 +78,12 @@ class VSCServer:
         finally:
             await self._E4_handler.exit()
             self._kill_eyetracker()
+        
+        if self._retrain:
+            self._retrain_ai(self._auto_save)
         print("Server shutdown successful")
+
+
 
 
     def _activation_check(self, act):
@@ -180,6 +190,7 @@ class VSCServer:
             await self.cmd_dict[cmd](data)
         else:
             # Throw error, non existant command
+            print(msg)
             await self._send_error(ERR_INVALID_CMD)
     
     async def _send_error(self, err, msg=""):
@@ -288,10 +299,11 @@ class VSCServer:
 
     async def _lost_E4(self, data):
         if data == "LOST" or data == "S_LOST":
-            self.settings["devices"]["E4"] = False
-            await self._exit_actions("E4")
-            print("Lost connection to E4.")
-            await self.send(f"{DISCONNECT_E4} {SUCCESS_STR} {data}")
+            if self.settings["devices"]["E4"]:
+                self.settings["devices"]["E4"] = False
+                await self._exit_actions("E4")
+                print("Lost connection to E4.")
+                await self.send(f"{DISCONNECT_E4} {SUCCESS_STR} {data}")
         
     
     async def _connect_E4(self, data):
@@ -363,17 +375,35 @@ class VSCServer:
             await self.send(f"{RECALIBRATE_EYE} {SUCCESS_STR}")
         else:
             await self.send(f"{RECALIBRATE_EYE} {FAIL_STR}")
-
-    async def retrain_ai(self):
-        path = os.path.join(os.path.dirname(__file__), "dataset.csv")
-        df = pd.read_csv(path)
-        ml_retrain.train(df)
+    
+    async def _ai_retraining(self, data):
+        self._retrain = False
+        log_msg = "OFF"
+        if data == "true":
+            log_msg = "ON"
+            self._retrain = True
+        print(f"Retrain AI turned {log_msg}.")
+    
+    def _retrain_ai(self, auto_save=False):
+        FILE_NAME = "dataset.csv"
+        console_msg = "Retraining AI..."
+        if auto_save:
+            console_msg += " Closing when done."
+        if os.path.exists(FILE_NAME):
+            print(console_msg)
+            df = pd.read_csv("dataset.csv")
+            ml_retrain.train(df, auto_save)
         
 
     async def _set_retrain(self, data):
         self._retrain = False
         if data == "true":
             self._retrain = True
+    
+    async def _auto_save_training(self, data):
+        self._auto_save = False
+        if data == "true":
+            self._auto_save = True
 
 
 async def main():

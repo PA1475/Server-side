@@ -60,10 +60,10 @@ def label_to_onehot(lst):
         labels.append(temp)
     return np.array(labels)
 
-def train(new_df):
+def train(new_df, auto_save = False):
     # Arousal and valence has the same data but different labels
-    arousal = pd.read_csv('data/SAM_arousal.csv')
-    valence = pd.read_csv('data/SAM_valence.csv')
+    arousal = pd.read_csv('../machine_learning/data/SAM_arousal.csv')
+    valence = pd.read_csv('../machine_learning/data/SAM_valence.csv')
 
     X = arousal.iloc[:, 34:len(arousal.columns) - 1].values
     arousal['valence'] = valence.iloc[:, -1]
@@ -85,8 +85,9 @@ def train(new_df):
     y_new = label_to_onehot(new_df.label.to_list())
     X_new = new_df.drop(columns='label').to_numpy()
 
-    X = np.concatenate((X,X_new))
-    y = np.concatenate((y, y_new))
+    if len(y_new) != 0:
+        X = np.concatenate((X,X_new))
+        y = np.concatenate((y, y_new))
 
     sc = StandardScaler()
     X = sc.fit_transform(X)
@@ -138,10 +139,14 @@ def train(new_df):
     ax[1].set_xlabel('epochs')
     ax[1].set_ylabel('accuracy')
 
-    fig.show()
+    #fig.show()
 
-    save = input('Save model? y for yes: ')
+    if not auto_save:
+        save = input('Save model? y for yes: ')
 
-    if save == 'y':
-        dump(sc, 'scaler.joblib')
-        torch.save(model.state_dict(), f'models/emotion_classifier.pth')
+        if save == 'y':
+            dump(sc, '../machine_learning/scaler.joblib')
+            torch.save(model.state_dict(), f'../machine_learning/models/emotion_classifier.pth')
+    else:
+        dump(sc, '../machine_learning/scaler.joblib')
+        torch.save(model.state_dict(), f'../machine_learning/models/emotion_classifier.pth')
