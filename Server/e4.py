@@ -171,8 +171,8 @@ class E4:
                 "timestamp": 0 }
         if not self._connected:
             return True
-        await self._E4_client.send("device_disconnect")
         self._connected = False
+        await self._E4_client.send("device_disconnect")
         await self._E4_client.exit()
         # No device connected in the first place
         return True

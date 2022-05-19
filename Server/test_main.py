@@ -19,7 +19,7 @@ class MockSocket:
         self.reader, self.writer = await asyncio.open_connection("127.0.0.1", self.port)
 
     async def answer(self):
-        return (await self.reader.readuntil(bytes("\t\n","utf-8"))).decode()[:-2]
+        return (await self.reader.readuntil(bytes("\r\n","utf-8"))).decode()[:-2]
     
     async def end(self):
         self.writer.write(bytes("END END_SERVER\t\n","utf-8"))

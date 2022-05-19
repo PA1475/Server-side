@@ -70,6 +70,7 @@ class E4Handler:
             self.writer.close()
             await self.writer.wait_closed()
             #await self.read_task Might need to be here
+            self.writer = None
             self.read_task = None
             self._resp_dict = {}
 
