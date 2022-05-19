@@ -344,7 +344,7 @@ class ActionBreak(Action):
         self.ACTIONS = ["ESTM"]
         self.frequency = frequency
         self.percentage = 0.7
-        self.emotion = "1"
+        self._emotion = 1
         self.settings["CERT"] = self._set_certainty
         self.settings["EMO"] = self._set_emotion
 
@@ -357,7 +357,11 @@ class ActionBreak(Action):
         return changed
     
     def _set_emotion(self, emotion):
-        pass
+        try:
+            self._emotion = int(emotion) - 1 
+            return True
+        except Exception:
+            return False
 
     async def _execute(self):
         # read the last x minutes from the emotions file 
@@ -372,7 +376,7 @@ class ActionBreak(Action):
         stress_count = 0
 
         for emotion in emotion_values:
-            if emotion == 1:
+            if emotion == self._emotion:
                 stress_count += 1
 
         if stress_count >= len(emotion_values) * self.percentage: # if 70% of the predicted emotions are stressed
@@ -389,14 +393,8 @@ class ActionCheckStream(Action):
 
     async def _execute(self):
         new_len = self.serv._E4_handler.check_stream()
-        print(f"Stream check <{new_len}>")
         if new_len == self._previous_len and new_len != 30:
-            if self._count == 0:
-                await self._msg_client("FAIL")
-                self._count = 5
-            else:
-                self._count -= 1
-
-        self._previous_len = new_len
+            print(f"HR stuck at '{new_len}' for one minute.")
+            await self._msg_client("FAIL")
         
 

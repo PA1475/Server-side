@@ -1,10 +1,10 @@
 import asyncio
 import enum
-from sre_constants import CALL
 from e4Client import E4Handler
 from enum import Enum
 import inspect
 import time
+import csv
 
 class E4data(Enum):
     BVP = "bvp"
@@ -29,6 +29,16 @@ STREAM_FROM = {
     E4data.TAG : "E4_Tag"
 }
 
+def dump_data(name, signal, ts_dict, hz):
+    timestamp = ts_dict[name]
+    rows = [[timestamp], [hz]]
+    for value in signal:
+        rows.append([value])
+    filename = f'../Dashboard/data/e4_wristband/{name}_{str(timestamp)}.csv'
+    with open(filename, 'w') as f:
+        write = csv.writer(f)
+        write.writerows(rows)
+
 def handle_e4_list(l_str):
     e4_list = []
     temp_lst = l_str.split(' | ')
@@ -52,13 +62,26 @@ class E4:
         self._E4_client = E4Handler(self._dc_callback)
         self._connected = False
         self.dc_func = None
+        self._counter_dict = {
+            "EDA" : 0,
+            "BVP" : 0,
+            "TEMP": 0,
+            "HR" : 0
+        }
+        self._ts_dict = {
+            "EDA" : 0,
+            "BVP" : 0,
+            "TEMP": 0,
+            "HR" : 0
+        }
         self.dataObject = {
-                "EDA": [],
-                "BVP": [],
-                "TEMP": [],
-                "HR" : [],
-                "timestamp": 0
-                }
+            "EDA": [],
+            "BVP": [],
+            "TEMP": [],
+            "HR" : [],
+            "timestamp": 0
+        }
+
         self._add_callbacks()
     
     async def __aenter__(self):
@@ -71,29 +94,72 @@ class E4:
         await self._E4_client.exit()
 
     def _add_callbacks(self):
-        #self._E4_client.callback('E4_Acc' ,self._ACC)
         self._E4_client.callback('E4_Bvp' ,self._BVP)
         self._E4_client.callback('E4_Gsr' ,self._GSR)
         self._E4_client.callback('E4_Temperature',self._TEMP)
         self._E4_client.callback('E4_Ibi' ,self._IBI)
         self._E4_client.callback('E4_Hr' ,self._HR)
-        #self._E4_client.callback('E4_Battery',self._BATTERY)
-        #self._E4_client.callback('E4_Tag', self._TAG)
-
+    
+    def _reset_data(self):
+        self.dataObject = {
+            "EDA": [],
+            "BVP": [],
+            "TEMP": [],
+            "HR" : [],
+            "timestamp": 0
+        }
+        self._ts_dict = {
+            "EDA" : 0,
+            "BVP" : 0,
+            "TEMP": 0,
+            "HR" : 0
+        }
+        self._counter_dict = {
+            "EDA" : 0,
+            "BVP" : 0,
+            "TEMP": 0,
+            "HR" : 0
+        }
+    
     def _BVP(self, timestamp, data):
-        self.dataObject["BVP"].append(data[0])
-        if len(self.dataObject["BVP"]) % ((SECONDS_TO_SAVE*64)+1) == 0:
-            self.dataObject["BVP"].pop(0)
+        DATA_TYPE = "BVP"
+        FREQUENCY = 64
+        if self._ts_dict[DATA_TYPE] == 0:
+            self._ts_dict[DATA_TYPE] = time.time()
+        self._counter_dict[DATA_TYPE] += 1
+        
+        if self._counter_dict[DATA_TYPE] == SECONDS_TO_SAVE*FREQUENCY:
+            dump_data(DATA_TYPE, self.dataObject[DATA_TYPE], self._ts_dict, FREQUENCY)
+
+
+        self.dataObject[DATA_TYPE].append(data[0])
+        if len(self.dataObject[DATA_TYPE]) % ((SECONDS_TO_SAVE*FREQUENCY)+1) == 0:
+
+            self.dataObject[DATA_TYPE].pop(0)
         
     def _ACC(self, timestamp, data):
         pass
 
     def _GSR(self, timestamp, data):
-        self.dataObject["EDA"].append(data[0])
-        if len(self.dataObject["EDA"]) % ((SECONDS_TO_SAVE*4)+1) == 0:
-            self.dataObject["EDA"].pop(0)
+        DATA_TYPE = "EDA"
+        FREQUENCY = 4
+        if self._ts_dict[DATA_TYPE] == 0:
+            self._ts_dict[DATA_TYPE] = time.time()
+        self._counter_dict[DATA_TYPE] += 1
+        
+        if self._counter_dict[DATA_TYPE] == SECONDS_TO_SAVE*FREQUENCY:
+            dump_data(DATA_TYPE, self.dataObject[DATA_TYPE], self._ts_dict, FREQUENCY)
+
+
+        self.dataObject[DATA_TYPE].append(data[0])
+        if len(self.dataObject[DATA_TYPE]) % ((SECONDS_TO_SAVE*FREQUENCY)+1) == 0:
+
+            self.dataObject[DATA_TYPE].pop(0)
 
     def _TEMP(self, timestamp, data):
+        if self._ts_dict["TEMP"] == 0:
+            self._ts_dict["TEMP"] = time.time()
+
         self.dataObject["TEMP"].append(data[0])
         if len(self.dataObject["TEMP"]) % ((SECONDS_TO_SAVE*4)+1) == 0:
             self.dataObject["TEMP"].pop(0)
@@ -102,9 +168,20 @@ class E4:
         pass
 
     def _HR(self, timestamp, data):
-        self.dataObject["HR"].append(data[0])
-        if len(self.dataObject["HR"]) % (SECONDS_TO_SAVE+1) == 0:
-            self.dataObject["HR"].pop(0)
+        DATA_TYPE = "HR"
+        FREQUENCY = 1
+        if self._ts_dict[DATA_TYPE] == 0:
+            self._ts_dict[DATA_TYPE] = time.time()
+        self._counter_dict[DATA_TYPE] += 1
+        
+        if self._counter_dict[DATA_TYPE] == SECONDS_TO_SAVE*FREQUENCY:
+            dump_data(DATA_TYPE, self.dataObject[DATA_TYPE], self._ts_dict, FREQUENCY)
+
+
+        self.dataObject[DATA_TYPE].append(data[0])
+        if len(self.dataObject[DATA_TYPE]) % ((SECONDS_TO_SAVE*FREQUENCY)+1) == 0:
+
+            self.dataObject[DATA_TYPE].pop(0)
 
     def _BATTERY(self, timestamp, data):
         pass
@@ -115,12 +192,7 @@ class E4:
         if state == "LOST" or state == "S_LOST":
             self._connected = False
             await self._E4_client.exit()
-            self.dataObject = {
-                "EDA": [],
-                "BVP": [],
-                "TEMP": [],
-                "HR" : [],
-                "timestamp": 0}
+            self._reset_data()
 
         if self.dc_func is not None:
             if inspect.iscoroutinefunction(self.dc_func):
@@ -163,12 +235,7 @@ class E4:
             After calling this function a new connection to the
             E4 Streaming Server needs to be established
         """
-        self.dataObject = {
-                "EDA": [],
-                "BVP": [],
-                "TEMP": [],
-                "HR" : [],
-                "timestamp": 0 }
+        self._reset_data()
         if not self._connected:
             return True
         self._connected = False
@@ -232,5 +299,9 @@ async def main():
         await e4.disconnect_E4()
     await e4.exit()
 
+def test_dump():
+    dic = {"HR" : time.time()}
+    dump_data("HR", [80,80,79,80,79,80], dic, 1)
+
 if __name__ == "__main__":
-   asyncio.run(main())
+   test_dump()

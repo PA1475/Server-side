@@ -1,5 +1,3 @@
-from asyncio import base_events
-from http import client
 from Error_handler import ErrorHandler
 from VSCMessageHandler import MsgHandler
 from VSCServerMessages import *
@@ -11,6 +9,7 @@ import json
 import os
 import pandas as pd
 import numpy as np
+import pandas as pd
 from e4 import E4
 
 
@@ -19,7 +18,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "./Eyetracker"))
 
 import machine_learning
-# from machine_learning import retrain
+import machine_learning.retrain as ml_retrain
 from gazepoint import Livestream
 
 
@@ -39,8 +38,10 @@ class VSCServer:
         self._E4_handler = E4()
         self._E4_model = None
         self.eye_tracker = Livestream()
+        self._retrain = False
         self._baseline = None
         self._retrain = False
+        self._auto_save = False
         self.settings = {
             "devices" : {"E4" : False, "EYE" : False, "EEG" : False, "TEST" : False, "TEST2" : False},
             "setup" : True
@@ -60,11 +61,12 @@ class VSCServer:
             "RCEY": self._recalibrate_eyetracker, # Recalibrate EYE
             "END" : self._end_server,             # End server (exit)
             "SBL" : self._start_baseline,         # Start basline recording
-            "AACT": self._activate_action,
+            "AACT": self._activate_action,        
             "DACT": self._deactivate_action,
             "EACT": self._edit_action,
             "ACT" : self._action_response,
-            "RTAI": self._ai_retraining
+            "RTAI": self._set_retrain,
+            "ASAI": self._auto_save_training
         }
 
     
@@ -78,7 +80,7 @@ class VSCServer:
             self._kill_eyetracker()
         
         if self._retrain:
-            self._retrain_ai()
+            self._retrain_ai(self._auto_save)
         print("Server shutdown successful")
 
 
@@ -382,12 +384,26 @@ class VSCServer:
             self._retrain = True
         print(f"Retrain AI turned {log_msg}.")
     
-    def _retrain_ai(self):
+    def _retrain_ai(self, auto_save=False):
         FILE_NAME = "dataset.csv"
+        console_msg = "Retraining AI..."
+        if auto_save:
+            console_msg += " Closing when done."
         if os.path.exists(FILE_NAME):
-            print("Retraining AI. Turning off when training is done...")
+            print(console_msg)
             df = pd.read_csv("dataset.csv")
-            #retrain.train(df)
+            ml_retrain.train(df, auto_save)
+        
+
+    async def _set_retrain(self, data):
+        self._retrain = False
+        if data == "true":
+            self._retrain = True
+    
+    async def _auto_save_training(self, data):
+        self._auto_save = False
+        if data == "true":
+            self._auto_save = True
 
 
 async def main():
