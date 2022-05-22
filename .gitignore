@@ -1,0 +1,11 @@
+node_modules
+venv
+.DS_Store
+*.ipynb_checkpoints/
+*__pycache__/
+main.ipynb
+emotions.csv
+dataset.csv
+lokal_baseline.json
+training_data.json
+Dashboard/assets
