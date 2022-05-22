@@ -1,4 +1,3 @@
-from ast import In
 from time import time
 import dash
 import os
@@ -8,12 +7,13 @@ from dash import dcc
 from dash import html
 from dash.dependencies import Input, Output
 import plotly.express as px
+import plotly.graph_objects as go
 import pandas as pd
 import dash_bootstrap_components as dbc
 from Sensors.e4 import E4Wristband
 from Sensors.eye_tracker import EyeTracker
 from Sensors.e4 import E4Wristband
-from Sensors.piechart import Piechart
+from Sensors.PrimeTime import Timeline
 
 if not os.path.exists(os.path.join(os.path.dirname(__file__), "assets")):
     os.makedirs(os.path.join(os.path.dirname(__file__), "assets"))
@@ -24,15 +24,14 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
 eye_tracker = EyeTracker()
 e4 = E4Wristband()
-pie = Piechart()
+timeline = Timeline()
 light_grey_color = '#F4F4F4'
 
-# defining the graph outside the layout for easier read
+# defining the graph outside the layout for easier  read
 graph_card = dcc.Graph(id='eye_tracking_visualization')
 e4_fig = dcc.Graph(id='e4_LineGraph')
 graph_card3 = dcc.Graph(id='eye_tracker_heatmap')
-pie_card = dcc.Graph(id="pie_chart")
-pie_summary = dcc.Graph(id="pie_summary")
+timeline_graph = dcc.Graph(id="timeline")
 header = dbc.Row(
             dbc.Container(
                 [
@@ -65,7 +64,7 @@ date_picker_bar = html.Div(
         children=[
                     html.H4('Select a timeframe', style={'margin' : 'auto', 'margin-right' : 20}),
                     html.P('Date:', style={'margin' : 'auto'}),
-                    dcc.DatePickerSingle(id='datepicker', date=date(2022, 2, 9), style={'background-color' : 'red', 'border-radius' : 10}),
+                    dcc.DatePickerSingle(id='datepicker', date=date(2022, 5, 19), style={'background-color' : 'red', 'border-radius' : 10}),
                     html.P('Start time:', style={'margin' : 'auto'}),
                     dcc.Dropdown(time_labels, 8, id='start', style={'width':100}),
                     html.P('End time:', style={'margin' : 'auto'}),
@@ -126,32 +125,8 @@ E4ColumnPicker = dbc.Col(
     style={'padding' : 30,'width' : '24rem'}
 )
 
-Pie_info = dbc.Row([
-    dbc.Col([
-        html.Div([
-            html.Div(
-                html.P([
-                    Pie_desciption_p1,
-                    html.Br(),html.Br(),
-                    Pie_desciption_p2,
-                    html.Br(),html.Br(),
-                    "Red : Tense",
-                    html.Br(),html.Br(),
-                    "Blue : Calm",
-                    html.Br(),html.Br(),
-                    "Purple : Fatigued",
-                    html.Br(),html.Br(),
-                    "Green : Excited"
-                    ], style={'color' : '#353535', 'margin-top': 20})
-                )]
-            )
-    ]),
-    dbc.Col(
-        pie_card
-    )
-    ])
 
-
+time_graph = dbc.Col([timeline_graph])
 E4Graph = dbc.Col([e4_fig], width=6)
 E4Summary = dbc.Col([html.Div(children=[], id='summary', style={'padding' : 10, 'align' : 'right'})], align='right', width=2)
 
@@ -174,6 +149,11 @@ app.layout = html.Div(
         html.Div(
             children=[
                 date_picker_bar,
+                html.Div(
+                    [   html.H2("Emotions over time"),
+                        time_graph,
+                        html.Img(src="/assets/moods.png")
+                    ],style={'textAlign': 'center'}),
                 dbc.Row(
                     [
                         E4ColumnPicker,
@@ -190,12 +170,20 @@ app.layout = html.Div(
                 ,dbc.Col(
                     graph_card3, width=5)
                 ], justify="center"),
-            html.H2("Daily Summary"),
-            Pie_info
+            html.H2("Daily Summary")
             ], style= {'padding-left' : 60, 'padding-right' : 60},
         ),
     ]
 )
+@app.callback(
+    Output("timeline","figure"),
+    Input('datepicker', 'date'),
+    Input('start', 'value'),
+    Input('end', 'value'))
+def update_timeline(date,start,end):
+    time_range = [start,end]
+    return timeline.fig(date,time_range)
+
 
 @app.callback(
     Output('eye_tracking_visualization', 'figure'),
@@ -244,16 +232,6 @@ def update_e4_summary(data_type, date, start, end):
     return [summary_card(round(_avg, 3), data_type, 'average'),
             summary_card(round(_min, 3), data_type, 'min'),
             summary_card(round(_max, 3), data_type, 'max')]
-
-@app.callback(
-    Output("pie_chart","figure"),
-    Input("datepicker","date"),
-    Input("start","value"),
-    Input("end","value"))
-def update_pie(date,start,end):
-    date = datetime.strptime(date, '%Y-%m-%d').date()
-    time_range = [start,end]
-    return pie.create_pie(date,time_range)
 
 
 
